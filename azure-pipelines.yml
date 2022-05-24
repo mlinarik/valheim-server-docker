@@ -20,7 +20,7 @@ variables:
   tag: 'server_$(Build.BuildNumber)'
   latest: latest
   mydate: $(Get-Date -Format yyyyMMddhhmm)
-  dockerRegistryServiceConnection: 50261e01-82e9-4704-bd22-3edbcf7ad6c8
+  dockerRegistryServiceConnection: 09a49187-6c27-4298-8da3-f4dd62164549
   imageRepository: mlinarik/valheim
 
 stages:
