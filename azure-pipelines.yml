@@ -21,7 +21,7 @@ variables:
   latest: latest
   mydate: $(Get-Date -Format yyyyMMddhhmm)
   dockerRegistryServiceConnection: 50261e01-82e9-4704-bd22-3edbcf7ad6c8
-  imageRepository: mlinarik/minecraft
+  imageRepository: mlinarik/valheim
 
 stages:
 - stage: Build
