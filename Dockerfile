@@ -1,4 +1,4 @@
-FROM debian:buster-slim as build-env
+FROM debian:bullseye-slim as build-env
 ENV DEBIAN_FRONTEND=noninteractive
 ARG TESTS
 ARG SOURCE_COMMIT
@@ -78,28 +78,37 @@ RUN mkdir -p /usr/local/etc/supervisor/conf.d/ \
 RUN echo "${SOURCE_COMMIT:-unknown}" > /usr/local/etc/git-commit.HEAD
 
 
-FROM debian:buster-slim
+FROM --platform=linux/386 debian:buster-slim as i386-libs
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get -y --no-install-recommends install \
+        libc6-dev \
+        libstdc++6 \
+        libsdl2-2.0-0 \
+        libcurl4 \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+
+FROM debian:bullseye-slim
 ENV DEBIAN_FRONTEND=noninteractive
 COPY --from=build-env /usr/local/ /usr/local/
+COPY --from=i386-libs /lib/ld-linux.so.2 /lib/ld-linux.so.2
+COPY --from=i386-libs /lib/i386-linux-gnu /lib/i386-linux-gnu
+COPY --from=i386-libs /usr/lib/i386-linux-gnu /usr/lib/i386-linux-gnu
 COPY fake-supervisord /usr/bin/supervisord
 
 RUN groupadd -g "${PGID:-0}" -o valheim \
     && useradd -g "${PGID:-0}" -u "${PUID:-0}" -o --create-home valheim \
-    && dpkg --add-architecture i386 \
     && apt-get update \
     && apt-get -y --no-install-recommends install apt-utils \
     && apt-get -y dist-upgrade \
     && apt-get -y --no-install-recommends install \
         libc6-dev \
-        lib32stdc++6 \
-        lib32gcc1 \
         libsdl2-2.0-0 \
-        libsdl2-2.0-0:i386 \
         cron \
         curl \
         iproute2 \
         libcurl4 \
-        libcurl4:i386 \
         ca-certificates \
         procps \
         locales \
@@ -111,12 +120,16 @@ RUN groupadd -g "${PGID:-0}" -o valheim \
         python3-minimal \
         python3-pkg-resources \
         python3-setuptools \
+        libpulse-dev \
+        libatomic1 \
+        libc6 \
     && echo 'LANG="en_US.UTF-8"' > /etc/default/locale \
     && echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
     && rm -f /bin/sh \
     && ln -s /bin/bash /bin/sh \
     && locale-gen \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3 1 \
+    && usermod -a -G crontab valheim \
     && apt-get clean \
     && mkdir -p /var/spool/cron/crontabs /var/log/supervisor /opt/valheim /opt/steamcmd /home/valheim/.config/unity3d/IronGate /config /var/run/valheim \
     && ln -s /config /home/valheim/.config/unity3d/IronGate/Valheim \

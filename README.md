@@ -69,14 +69,14 @@ The name of the Docker image is `ghcr.io/lloesche/valheim-server`.
 Volume mount the server config directory to `/config` within the Docker container.
 
 If you have an existing world on a Windows system you can copy it from e.g.  
-  `C:\Users\Lukas\AppData\LocalLow\IronGate\Valheim\worlds`
+  `C:\Users\Lukas\AppData\LocalLow\IronGate\Valheim\worlds_local`
 to e.g.  
-  `$HOME/valheim-server/config/worlds`
+  `$HOME/valheim-server/config/worlds_local`
 and run the image with `$HOME/valheim-server/config` volume mounted to `/config` inside the container.
 The container directory `/opt/valheim` contains the downloaded server. It can optionally be volume mounted to avoid having to download the server on each fresh start.
 
 ```
-$ mkdir -p $HOME/valheim-server/config/worlds $HOME/valheim-server/data
+$ mkdir -p $HOME/valheim-server/config/worlds_local $HOME/valheim-server/data
 # copy existing world
 $ docker run -d \
     --name valheim-server \
@@ -95,7 +95,7 @@ Warning: `SERVER_PASS` must be at least 5 characters long. Otherwise `valheim_se
 
 A fresh start will take several minutes depending on your Internet connection speed as the container will download the Valheim dedicated server from Steam (~1 GB).
 
-Do not forget to modify `WORLD_NAME` to reflect the name of your world! For existing worlds that is the filename in the `worlds/` folder without the `.db/.fwl` extension.
+Do not forget to modify `WORLD_NAME` to reflect the name of your world! For existing worlds that is the filename in the `worlds_local/` folder without the `.db/.fwl` extension.
 
 If you want to play with friends over the Internet and are behind NAT make sure that UDP ports 2456-2457 are forwarded to the container host.
 Also ensure they are publicly accessible in any firewall.
@@ -121,9 +121,9 @@ Without it you will see a message `Warning: failed to set thread priority` in th
 | `SERVER_PASS` | `secret` | Password for logging into the server - min. 5 characters! |
 | `SERVER_PUBLIC` | `true` | Whether the server should be listed in the server browser (`true`) or not (`false`) |
 | `SERVER_ARGS` |  | Additional Valheim server CLI arguments |
-| `ADMINLIST_IDS` |  | Space separated list of admin SteamIDs. Overrides any existing adminlist.txt entries! |
-| `BANNEDLIST_IDS` |  | Space separated list of banned SteamIDs. Overrides any existing bannedlist.txt entries! |
-| `PERMITTEDLIST_IDS` |  | Space separated list of whitelisted SteamIDs. Overrides any existing permittedlist.txt entries! |
+| `ADMINLIST_IDS` |  | Space separated list of admin SteamIDs in SteamID64 format. Overrides any existing adminlist.txt entries! |
+| `BANNEDLIST_IDS` |  | Space separated list of banned SteamIDs in SteamID64 format. Overrides any existing bannedlist.txt entries! |
+| `PERMITTEDLIST_IDS` |  | Space separated list of whitelisted SteamIDs in SteamID64 format. Overrides any existing permittedlist.txt entries! |
 | `UPDATE_CRON` | `*/15 * * * *` | [Cron schedule](https://en.wikipedia.org/wiki/Cron#Overview) for update checks (disabled if set to an empty string or if the legacy `UPDATE_INTERVAL` is set) |
 | `IDLE_DATAGRAM_WINDOW` | `3` | The time window, in seconds, to wait for incoming UDP datagrams on non-public servers before determining if the server is idle |
 | `IDLE_DATAGRAM_MAX_COUNT` | `30` | The number of incoming UDP datagrams the container should tolerate (including useless datagrams such as mDNS, as well as useful datagrams like queries against the UDP query port and active connections by players) on non-public servers before deciding that the server is not idle |
@@ -141,7 +141,9 @@ Without it you will see a message `Warning: failed to set thread priority` in th
 | `BACKUPS_ZIP` | `true` | Compress Backups with `zip`. If set to `false` Backups will be stored uncompressed. |
 | `PERMISSIONS_UMASK` | `022` | [Umask](https://en.wikipedia.org/wiki/Umask) to use for backups, config files and directories |
 | `STEAMCMD_ARGS` | `validate` | Additional steamcmd CLI arguments |
+| `PUBLIC_TEST` | `false` | Run the Public Test Beta version of Valheim server. Note that this simply extends existing `STEAMCMD_ARGS` by adding the appropriate beta flags to it. |
 | `VALHEIM_PLUS` | `false` | Whether [ValheimPlus](https://github.com/valheimPlus/ValheimPlus) mod should be loaded (config in `/config/valheimplus`, additional plugins in `/config/valheimplus/plugins`). Can not be used together with `BEPINEX`. |
+| `VALHEIM_PLUS_RELEASE` | `latest` | Which version of [ValheimPlus](https://github.com/valheimPlus/ValheimPlus) to download. Will default to latest available. To specify a specific tag set to `tags/0.9.9.8` |
 | `BEPINEX` | `false` | Whether [BepInExPack Valheim](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/) mod should be loaded (config in `/config/bepinex`, plugins in `/config/bepinex/plugins`). Can not be used together with `VALHEIM_PLUS`. |
 | `SUPERVISOR_HTTP` | `false` | Turn on supervisor's http server |
 | `SUPERVISOR_HTTP_PORT` | `9001` | Set supervisor's http server port |
@@ -177,7 +179,7 @@ The default filter removes:
 - Empty log lines
 - Log lines consisting of a single space (wtf?)
 - A repeating line saying `(Filename: ./Runtime/Export/Debug/Debug.bindings.h Line: 35)`
-- Lines flodding the log with `Assertion Failed` warnings on packet processing timeouts (See [#104](https://github.com/lloesche/valheim-server-docker/discussions/104))
+- Lines flooding the log with `Assertion Failed` warnings on packet processing timeouts (See [#104](https://github.com/lloesche/valheim-server-docker/discussions/104))
 - If ValheimPlus is turned on lines starting with `Fallback handler could not load library`
 
 
@@ -347,7 +349,7 @@ On our system while idle with no players connected Valheim server consumes aroun
 
 The picture changes when players connect. The first player increased overall load to 42%, the second player to 53%. In the thread view we see that a thread that was previously consuming 10% is now hovering around 38%. Meaning while Valheim server creates 50 threads on our system it looks like there is a single thread doing the bulk of all work (~70%) with no way for the Kernel to distribute the load to many cores.
 
-Therefor our minimum requirements would be a dual core system with 4 GB of RAM and our recommended system would be a high clocked 4 core server with 8 GB of RAM. A few very high clocked cores will be more beneficial than having many cores. I.e. two 5 GHz cores will yield better performance than six 2 GHz cores.
+Therefore our minimum requirements would be a dual core system with 4 GB of RAM and our recommended system would be a high clocked 4 core server with 8 GB of RAM. A few very high clocked cores will be more beneficial than having many cores. I.e. two 5 GHz cores will yield better performance than six 2 GHz cores.
 This holds especially true the more players are connected to the system.
 
 
@@ -416,20 +418,20 @@ This update schedule can be changed using the `UPDATE_CRON` environment variable
 
 
 # Backups
-The container will on startup and periodically create a backup of the `worlds/` directory.
+The container will on startup and periodically create a backup of the `worlds_local/` directory.
 
 The default is once per hour but can be changed using the `BACKUPS_CRON` environment variable.
 
 Default backup directory is `/config/backups/` within the container. A different directory can be set using the `BACKUPS_DIRECTORY` environment variable.
 It makes sense to have this directory be a volume mount from the host.
-Warning: do not make the backup directory a subfolder of `/config/worlds/`. Otherwise each backup will backup all previous backups.
+Warning: do not make the backup directory a subfolder of `/config/worlds_local/`. Otherwise each backup will backup all previous backups.
 
 By default 3 days worth of backups will be kept. A different number can be configured using `BACKUPS_MAX_AGE`. The value is in days.
 
 It is possible to configure a maximum number of to-be-kept backup files with `BACKUPS_MAX_COUNT`. When going over this limit, the oldest file(s) will be deleted. The default is `0` which means no limit. Note that `BACKUPS_MAX_AGE` will always be respected: if backups get too old, they will be deleted even if `BACKUPS_MAX_COUNT` was not yet reached (or is `0`).
 
 Beware that backups are performed while the server is running. As such files might be in an open state when the backup runs.
-However the `worlds/` directory also contains a `.db.old` file for each world which should always be closed and in a consistent state.
+However the `worlds_local/` directory also contains a `.db.old` file for each world which should always be closed and in a consistent state.
 
 See [Copy backups to another location](#copy-backups-to-another-location) for an example of how to copy backups offsite.
 
@@ -682,7 +684,7 @@ Change the name back to original name (2) (3) (4).
 
 Unter Advanced container settings override (6) the command and enter `/usr/local/sbin/bootstrap` (7)
 
-Make shure "Always pull the image" is enabled.
+Make sure "Always pull the image" is enabled.
 
 click "Deploy the container" to finish.
 
@@ -730,7 +732,7 @@ The error is caused by Synology using the old image's `CMD` with the newly downl
 # QNAP NAS Help
 ## Creating container
 
-As a prerequisite you need to create a folder where you will keep yours saves, backups and configuration.
+As a prerequisite you need to create a folder where you will keep your saves, backups and configuration.
 
 Here is an example `docker-compose.yml` file that we will use in the next steps.
 ```yaml
