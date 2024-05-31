@@ -22,7 +22,7 @@ This project is hosted at [https://github.com/lloesche/valheim-server-docker](ht
 * [System requirements](#system-requirements)
 * [Deployment](#deployment)
 	* [Deploying with Docker and systemd](#deploying-with-docker-and-systemd)
-	* [Deploying with docker-compose](#deploying-with-docker-compose)
+	* [Deploying with docker compose](#deploying-with-docker-compose)
 	* [Deploying to Kubernetes](#deploying-to-kubernetes)
 	* [Deploying to AWS ECS](#deploying-to-aws-ecs)
 	* [Deploying to Nomad](#deploying-to-nomad)
@@ -97,8 +97,14 @@ A fresh start will take several minutes depending on your Internet connection sp
 
 Do not forget to modify `WORLD_NAME` to reflect the name of your world! For existing worlds that is the filename in the `worlds_local/` folder without the `.db/.fwl` extension.
 
-If you want to play with friends over the Internet and are behind NAT make sure that UDP ports 2456-2457 are forwarded to the container host.
+If you want to play with friends over the Internet and are behind NAT make sure that UDP ports 2456-2457 are forwarded to the container host. (Remark: If you use crossplay, you don't need port forwarding! See official Valheim Dedicated Server Manual.pdf in the data/server folder.)
 Also ensure they are publicly accessible in any firewall.
+
+**Crossplay:** To enable crossplay between different platforms add -crossplay to SERVER_ARGS:
+
+```
+    -e SERVER_ARGS="-crossplay"
+```
 
 There is more info in section [Finding Your Server](#finding-your-server).
 
@@ -143,6 +149,7 @@ Without it you will see a message `Warning: failed to set thread priority` in th
 | `STEAMCMD_ARGS` | `validate` | Additional steamcmd CLI arguments |
 | `PUBLIC_TEST` | `false` | Run the Public Test Beta version of Valheim server. Note that this simply extends existing `STEAMCMD_ARGS` by adding the appropriate beta flags to it. |
 | `VALHEIM_PLUS` | `false` | Whether [ValheimPlus](https://github.com/valheimPlus/ValheimPlus) mod should be loaded (config in `/config/valheimplus`, additional plugins in `/config/valheimplus/plugins`). Can not be used together with `BEPINEX`. |
+| `VALHEIM_PLUS_REPO` | `Grantapher/ValheimPlus` | Which ValheimPlus Github repo to use. Useful for switching to forks. |
 | `VALHEIM_PLUS_RELEASE` | `latest` | Which version of [ValheimPlus](https://github.com/valheimPlus/ValheimPlus) to download. Will default to latest available. To specify a specific tag set to `tags/0.9.9.8` |
 | `BEPINEX` | `false` | Whether [BepInExPack Valheim](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/) mod should be loaded (config in `/config/bepinex`, plugins in `/config/bepinex/plugins`). Can not be used together with `VALHEIM_PLUS`. |
 | `SUPERVISOR_HTTP` | `false` | Turn on supervisor's http server |
@@ -315,6 +322,7 @@ Some characters that are allowed as section names in the config files are not al
 | `_HYPHEN_` | `-` |
 | `_UNDERSCORE_` | `_` |
 | `_PLUS_` | `+` |
+| `_SPACE_` | ` ` |
 
 Example:
 ```
@@ -374,8 +382,8 @@ $ sudo systemctl enable valheim.service
 $ sudo systemctl start valheim.service
 ```
 
-## Deploying with docker-compose
-Copy'paste the following into your shell
+## Deploying with docker compose
+Copy and paste the following into your shell
 ```
 mkdir -p $HOME/valheim-server/config $HOME/valheim-server/data
 cd $HOME/valheim-server/
@@ -386,7 +394,7 @@ SERVER_PASS=secret
 SERVER_PUBLIC=true
 EOF
 curl -o $HOME/valheim-server/docker-compose.yaml https://raw.githubusercontent.com/lloesche/valheim-server-docker/main/docker-compose.yaml
-docker-compose up
+docker compose up -d
 ```
 
 ## Deploying to Kubernetes
@@ -506,6 +514,8 @@ Note that in my tests when connecting to the server via the Steam server browser
 ## Steam Server Favorites & LAN Play
 A third option within Steam is to add the server manually by IP. This also allows for LAN play without the need to open or forward any firewall ports.
 
+Remark: LAN-Play is only available for Steam-Version without CrossPlay enabled! See official Valheim Dedicated Server Manual.pdf in the data/server folder.
+
 Steps:
 1) Within Steam click on `View -> Servers`
 2) `FAVORITES`
@@ -611,6 +621,9 @@ Within the container `status.json` is written to `STATUS_HTTP_HTDOCS` which by d
 As mentioned all the information is publicly available on the Valheim server query port. However the option is there to configure a `STATUS_HTTP_CONF` (`/config/httpd.conf` by default) containing [busybox httpd config](https://git.busybox.net/busybox/tree/networking/httpd.c) to limit access to the status web server by IP/subnet or login/password.
 
 # Modding
+
+Remark: Some Mods are using RPC commands, which needs gameport+2 for communication (e.g. if you're using gamport 2456, you have to open port 2458 too for the network: 2456-2458:2456-2458/udp) and in your firewall rules (if defined).
+
 ## BepInExPack Valheim
 **Enable with**
 | Variable | Value |
@@ -734,19 +747,17 @@ The error is caused by Synology using the old image's `CMD` with the newly downl
 
 As a prerequisite you need to create a folder where you will keep your saves, backups and configuration.
 
-Here is an example `docker-compose.yml` file that we will use in the next steps.
+Here is an example `docker-compose.yaml` file that we will use in the next steps.
 ```yaml
-version: "3"
-
-services: 
-  valheim: 
+services:
+  valheim:
     image: lloesche/valheim-server
     cap_add:
       - sys_nice
-    volumes: 
+    volumes:
       - /share/CACHEDEV1_DATA/{path_to_folder}/config:/config
       - /share/CACHEDEV1_DATA/{path_to_folder}/data:/opt/valheim
-    ports: 
+    ports:
       - "2456-2457:2456-2457/udp"
       - "9001:9001/tcp"
     env_file:
